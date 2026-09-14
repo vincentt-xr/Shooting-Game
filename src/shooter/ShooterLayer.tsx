@@ -1,6 +1,6 @@
 import { ScreenImage, ScreenText } from "@vincentt-xr/sdk";
 
-import type { ShooterLayerSettings } from "./settings";
+import type { ShooterLayerSettings, ShooterScreenTransform2DSettings } from "./settings";
 
 export const ShooterImageLayer = ({
   layer,
@@ -22,8 +22,7 @@ export const ShooterImageLayer = ({
     return null;
   }
 
-  const transform = value.transformation;
-  const image = value.image;
+  const { transformation: transform, image } = value;
   const finalPosition = position ?? transform.position;
   const finalSize = size ?? transform.size;
 
@@ -47,7 +46,6 @@ export const ShooterImageLayer = ({
       overlay={transform.overlay}
       renderOrder={layer.renderOrder}
       visible={layer.visible}
-      showFitGuides={transform.showFitGuides}
     />
   );
 };
@@ -57,19 +55,20 @@ export const ShooterTextLayer = ({
   text,
   position,
   opacity,
+  onScreenTransformChange,
 }: {
   layer: ShooterLayerSettings;
   text?: string;
   position?: { x: number; y: number };
   opacity?: number;
+  onScreenTransformChange?: (next: ShooterScreenTransform2DSettings) => void;
 }) => {
   const value = layer.text?.screenText;
   if (!value?.enabled || !layer.enabled || !layer.visible || !value.transformation.visible) {
     return null;
   }
 
-  const transform = value.transformation;
-  const style = value.style;
+  const { transformation: transform, style } = value;
   const finalPosition = position ?? transform.position;
 
   return (
@@ -80,6 +79,8 @@ export const ShooterTextLayer = ({
       size={[transform.size.width, transform.size.height]}
       rotation={transform.rotation}
       pivot={transform.pivot}
+      screenTransform={value.screenTransform}
+      onScreenTransformChange={onScreenTransformChange}
       renderOrder={layer.renderOrder}
       overlay={transform.overlay}
       visible={layer.visible}
@@ -107,6 +108,7 @@ export const ShooterTextLayer = ({
       borderWidth={style.background.borderEnabled ? style.background.borderWidth : 0}
       borderRadius={style.background.borderRadius}
       textAlign={value.layout.textAlign}
+      verticalAlign={value.layout.verticalAlign}
       overflow={value.layout.overflow}
       resizeToFit={value.layout.resizeToFit}
       minFontSize={value.layout.minFontSize}

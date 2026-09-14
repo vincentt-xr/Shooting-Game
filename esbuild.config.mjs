@@ -52,7 +52,31 @@ export function aliasMap(root = repoRoot) {
   const sdkLinks = resolveSdkLinks(process.env.SDK_LINK);
   return {
     ...singletons,
-    ...(sdkLinks ? { [SDK_PKG]: sdkLinks.main } : {}),
+  };
+}
+
+function sdkLinkPlugin() {
+  const sdkLinks = resolveSdkLinks(process.env.SDK_LINK);
+  if (!sdkLinks) return null;
+  const entryByPath = new Map([
+    [SDK_PKG, sdkLinks.main],
+    [`${SDK_PKG}/tracking`, sdkLinks.tracking],
+    [`${SDK_PKG}/face-effects`, sdkLinks.faceEffects],
+    [`${SDK_PKG}/low-level`, sdkLinks.lowLevel],
+    [`${SDK_PKG}/internal`, sdkLinks.internal],
+    [`${SDK_PKG}/debug-ui`, sdkLinks.debugUi],
+    [`${SDK_PKG}/debug-ui/media-source`, sdkLinks.debugUiMediaSource],
+    [`${SDK_PKG}/debug-ui/default-setting`, sdkLinks.debugUiDefaultSetting],
+  ]);
+  return {
+    name: "sdk-link",
+    setup(build) {
+      build.onResolve({ filter: /^@vincentt-xr\/sdk(\/.*)?$/ }, (args) => {
+        const resolved = entryByPath.get(args.path);
+        if (!resolved) return null;
+        return { path: resolved };
+      });
+    },
   };
 }
 
@@ -105,8 +129,9 @@ export function buildOptions({ mode = "production", root = repoRoot } = {}) {
       }),
     },
     plugins: [
+      sdkLinkPlugin(),
       stylePlugin({ postcss: { plugins: [require("@tailwindcss/postcss")] } }),
-    ],
+    ].filter(Boolean),
     metafile: true,
     logLevel: "info",
   };

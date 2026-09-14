@@ -1,8 +1,12 @@
 import {
   DEFAULT_SCREEN_IMAGE_SCENE_SETTINGS,
+  DEFAULT_SCREEN_TEXT_SCENE_SETTINGS as SDK_DEFAULT_SCREEN_TEXT_SCENE_SETTINGS,
   type ScreenImageSceneSettings,
 } from "@vincentt-xr/sdk";
-import type { ScreenTextSceneSettings } from "@vincentt-xr/sdk/debug-ui";
+import type {
+  ScreenTextSceneSettings,
+  ScreenTextSettings,
+} from "@vincentt-xr/sdk/debug-ui";
 
 export type ShooterLayerKind = "image" | "text" | "group";
 
@@ -15,17 +19,22 @@ export type ShooterLayerId =
   | "crosshair"
   | "ammoIcon"
   | "ammoText"
-  | "scoreText"
-  | "gameMessage";
+  | "scoreText";
 
 export type ShooterImageLayerId = Extract<
   ShooterLayerId,
-  "gun" | "crosshair" | "ammoIcon" | "bottles" | "brokenPieces" | "topHalfBottle" | "bottomHalfBottle"
+  | "gun"
+  | "crosshair"
+  | "ammoIcon"
+  | "bottles"
+  | "brokenPieces"
+  | "topHalfBottle"
+  | "bottomHalfBottle"
 >;
 
 export type ShooterTextLayerId = Extract<
   ShooterLayerId,
-  "ammoText" | "scoreText" | "gameMessage"
+  "ammoText" | "scoreText"
 >;
 
 export type ShooterGameSettings = {
@@ -37,6 +46,29 @@ export type ShooterGameSettings = {
   bottleHitPadding: number;
 };
 
+export type ShooterScreenTransform2DSettings = {
+  enabled: boolean;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  pivot: [number, number];
+  rotation: number;
+  scale2D: { x: number; y: number };
+  referencePixelsPerUnit: number;
+  renderOrder: number;
+  overlay: boolean;
+  visible: boolean;
+  showTransformGuides: boolean;
+};
+
+export type ShooterTextSceneSettings = Omit<
+  ScreenTextSceneSettings,
+  "screenText"
+> & {
+  screenText: ScreenTextSettings & {
+    screenTransform?: ShooterScreenTransform2DSettings;
+  };
+};
+
 export type ShooterLayerSettings = {
   id: ShooterLayerId;
   label: string;
@@ -46,7 +78,7 @@ export type ShooterLayerSettings = {
   locked?: boolean;
   renderOrder: number;
   image?: ScreenImageSceneSettings;
-  text?: ScreenTextSceneSettings;
+  text?: ShooterTextSceneSettings;
   textResolution?: number;
 };
 
@@ -56,60 +88,28 @@ export type ShooterSettings = {
   layers: Record<ShooterLayerId, ShooterLayerSettings>;
 };
 
-const DEFAULT_SCREEN_TEXT_SCENE_SETTINGS: ScreenTextSceneSettings = {
+const DEFAULT_SCREEN_TRANSFORM_2D: ShooterScreenTransform2DSettings = {
+  enabled: true,
+  position: { x: 0, y: 0 },
+  size: { width: 720, height: 1280 },
+  pivot: [0.5, 0.5],
+  rotation: 0,
+  scale2D: { x: 1, y: 1 },
+  referencePixelsPerUnit: 32,
+  renderOrder: 999,
+  overlay: true,
+  visible: true,
+  showTransformGuides: false,
+};
+
+const DEFAULT_SCREEN_TEXT_SCENE_SETTINGS: ShooterTextSceneSettings = {
+  ...SDK_DEFAULT_SCREEN_TEXT_SCENE_SETTINGS,
   screenText: {
-    enabled: true,
-    content: { text: "" },
-    layout: {
-      textAlign: "center",
-      verticalAlign: "center",
-      overflow: "shrink",
-      resizeToFit: true,
-      minFontSize: 8,
-    },
-    style: {
-      fontSize: 84,
-      letterSpacing: 0,
-      lineSpacing: 1,
-      color: "#ffffff",
-      opacity: 1,
-      aspect: 1,
-      background: {
-        enabled: false,
-        autoSize: false,
-        fit: "full",
-        fillMode: "solid",
-        color: "#000000",
-        opacity: 0,
-        borderRadius: 0,
-        padding: 0,
-        width: 1,
-        height: 1,
-        borderEnabled: false,
-        borderWidth: 0,
-        borderColor: "#000000",
-        gradientStops: [],
-        textureFit: "cover",
-        textureFlipX: false,
-        textureFlipY: false,
-      },
-      strokeLayers: [],
-      shadowLayers: [],
-    },
-    transformation: {
-      enabled: true,
-      showTransformGuides: false,
-      position: { x: 0, y: 0 },
-      size: { width: 1, height: 1 },
-      rotation: 0,
-      pivot: [0.5, 0.5],
-      renderOrder: 0,
-      overlay: true,
-      visible: true,
-    },
-    textArtPreset: "clean",
+    ...SDK_DEFAULT_SCREEN_TEXT_SCENE_SETTINGS.screenText,
+    screenTransform: DEFAULT_SCREEN_TRANSFORM_2D,
   },
-  screenSpaceUI: { enabled: true },
+  screenImage: DEFAULT_SCREEN_IMAGE_SCENE_SETTINGS.screenImage,
+  screenSpaceUI: SDK_DEFAULT_SCREEN_TEXT_SCENE_SETTINGS.screenSpaceUI,
 };
 
 const imageLayer = (
@@ -180,13 +180,29 @@ const textLayer = (
         visible: true,
         overlay: true,
       },
+      screenTransform: {
+        ...DEFAULT_SCREEN_TRANSFORM_2D,
+        position: { x: position.x * 360, y: position.y * 640 },
+        size: {
+          width: Math.max(240, size.width * 240),
+          height: Math.max(160, size.height * 80),
+        },
+        pivot: [0.5, 0.5],
+        rotation: 0,
+        renderOrder,
+        overlay: true,
+        visible: true,
+        showTransformGuides: false,
+      },
       style: {
         ...DEFAULT_SCREEN_TEXT_SCENE_SETTINGS.screenText.style,
         fontSize,
         color: "#ffffff",
         aspect: size.width / size.height,
         strokeLayers: [{ color: "#120807", width: strokeWidth, opacity: 1 }],
-        shadowLayers: [{ color: "#000000", blur: 14, offsetX: 8, offsetY: -8, opacity: 0.6 }],
+        shadowLayers: [
+          { color: "#000000", blur: 14, offsetX: 8, offsetY: -8, opacity: 0.6 },
+        ],
       },
     },
   },
@@ -266,7 +282,7 @@ export const DEFAULT_SHOOTER_SETTINGS: ShooterSettings = {
       { x: -0.56, y: -0.85 },
       { width: 3, height: 3 },
       90,
-      72,
+      60,
       8,
     ),
     scoreText: textLayer(
@@ -276,17 +292,7 @@ export const DEFAULT_SHOOTER_SETTINGS: ShooterSettings = {
       { x: 0.73, y: -0.6 },
       { width: 0.7, height: 3 },
       90,
-      72,
-      10,
-    ),
-    gameMessage: textLayer(
-      "gameMessage",
-      "Game Message",
-      "",
-      { x: 0, y: 0 },
-      { width: 4, height: 4 },
-      95,
-      360,
+      60,
       10,
     ),
   },

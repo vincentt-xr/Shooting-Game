@@ -1,66 +1,73 @@
-# v2-template
+# Shooter Game Template
 
-The Vincentt v2 starter app. Every v2 project is forked from this template into
-its own repo and edited turn-by-turn by an AI agent. It is a real React + R3F +
-[Vincentt XR SDK](../xr-sdk) WebXR app, bundled by esbuild (the same toolchain
-powers the in-editor preview and the published build).
+A remixable Vincentt XR shooter game built with React, React Three Fiber, and
+the Vincentt XR SDK. It uses esbuild for local development and production
+bundles.
 
-## Shape
+## Run locally
 
+```bash
+pnpm install
+pnpm dev
+pnpm typecheck
+pnpm lint
+pnpm build
 ```
+
+`pnpm dev` starts the local esbuild server. The editor preview uses the same
+application entry points and SDK components.
+
+## Game controls
+
+- Show an open palm to start the round and aim the crosshair.
+- Make a fist to shoot once.
+- Bullet Number and Score are runtime HUD elements.
+- After the win or lose condition, the game pauses and shows `PLAY AGAIN`.
+- Click `PLAY AGAIN`, or move the crosshair over it and make a fist, to reset.
+- A first pointer interaction unlocks browser audio; shooting then plays
+  `public/audio/gun-shot.mp3`.
+
+The instruction and Play Again overlays are plain HTML rendered through drei's
+`Html` bridge and centered against the Vincentt canvas viewport.
+
+## Remix guide
+
+- `src/shooter/settings.ts`: bullet count, bottle count, target score, movement
+  speed, layer positions, sizes, render order, and asset paths.
+- `src/shooter/ShooterGame.tsx`: gesture input, shooting, hit detection,
+  scoring, game-over pause, and animation behavior.
+- `src/shooter/ShooterInstruction.tsx`: the centered start/shoot instruction.
+- `src/shooter/ShooterResetButton.tsx`: the game-over reset button.
+- `public/images/`: replace artwork while keeping paths in `settings.ts` synced.
+- `public/audio/gun-shot.mp3`: replace the shooting sound effect.
+
+The runtime keeps Bullet Number and Score visible without a debug settings
+panel. Game Message has been removed.
+
+## Project structure
+
+```text
 src/
-  main.tsx            mount — never edited
-  App.tsx             protected shell: XRProvider + AspectRatioContainer +
-                      XRScene + media-source binding, camera, lighting,
-                      VideoBackground, PreviewAnchors — never edited
-  Scene.tsx           the agent's surface: add SDK components and R3F
-                      primitives here
-  PreviewAnchors.tsx  editor-preview integration — never edited
+  main.tsx              application mount
+  App.tsx               Vincentt XR shell and settings state
+  Scene.tsx             camera-feed scene composition
+  PreviewAnchors.tsx    editor preview integration
+  shooter/              game runtime, layers, settings, and HTML overlays
+public/
+  images/               game artwork
+  audio/                game sound effects
+.vincentt/project.json  Vincentt project identity for remixing
 ```
 
-See `AGENTS.md` and `GROUNDING.md` for the API reference and how to author scenes.
+`App.tsx` and `Scene.tsx` retain the settings wiring used by the game.
 
-## Develop
+## Validation
 
-```
-npm install
-npm run dev          # esbuild dev server on :5173
-npm run typecheck    # tsc --noEmit
-npm run build        # production bundle to dist/
-```
-
-### Development
-
-This template uses the published `@vincentt-xr/sdk` package by default:
-
-```
-npm install
-npm run dev
+```bash
+pnpm typecheck
+pnpm lint
+pnpm build
 ```
 
-## Releasing this template
-
-`main` is active dev. New projects are NOT seeded from `main` — they seed from a
-promoted version, so an in-progress `main` commit never reaches a creator's project
-until it is deliberately released.
-
-- **`main`** — where changes land (PRs). Not seeded directly.
-- **`release`** — only ever fast-forwards to a `v2-template-vX.Y.Z`-tagged commit.
-  The platform's gitea mirror uses this as its default branch, and gitea
-  `/generate` copies the default branch — so `release` HEAD is what new projects
-  get.
-
-**To promote a release:**
-
-```
-git tag v2-template-vX.Y.Z        # on the commit to release (on main)
-git checkout release
-git merge --ff-only v2-template-vX.Y.Z
-git push origin main release --tags
-```
-
-`release` must ALWAYS be a fast-forward of a tagged commit — never a merge commit,
-never a non-tagged HEAD. After pushing, the platform side binds dependencies to the
-same tag (set `V2_TEMPLATE_VERSION`, restart the worker, reinstall the shared
-template node_modules); see the backend deploy runbook's "Promoting a template
-release" for the full procedure.
+Confirm the production output contains the image assets and
+`audio/gun-shot.mp3`.

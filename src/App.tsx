@@ -11,7 +11,6 @@ import { PerspectiveCamera } from "@react-three/drei";
 
 import { Scene } from "./Scene";
 import { PreviewAnchors } from "./PreviewAnchors";
-import { TextDebugPanels } from "./shooter/TextDebugPanels";
 import { DEFAULT_SHOOTER_SETTINGS, type ShooterSettings } from "./shooter/settings";
 
 const FALLBACK_VIDEO_URL =
@@ -162,24 +161,21 @@ const Shell = () => {
   const [settings, setSettings] = useState<ShooterSettings>(DEFAULT_SHOOTER_SETTINGS);
 
   return (
-    <>
-      <AspectRatioContainer>
-        <XRScene
-          loadingComponent={<Loading shouldFadeOut={ready} />}
-          errorComponent={<CameraError />}
-          loadingTransitionDuration={1000}
-          style={{ width: "100%", height: "100%" }}
-        >
-          <MediaSourceBinder />
-          <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={45} />
-          <ambientLight intensity={1} />
-          <directionalLight position={[5, 5, 5]} intensity={1} />
-          <Scene settings={settings} />
-          <PreviewAnchors />
-        </XRScene>
-      </AspectRatioContainer>
-      <TextDebugPanels settings={settings} onChange={setSettings} />
-    </>
+    <AspectRatioContainer>
+      <XRScene
+        loadingComponent={<Loading shouldFadeOut={ready} />}
+        errorComponent={<CameraError />}
+        loadingTransitionDuration={1000}
+        style={{ width: "100%", height: "100%" }}
+      >
+        <MediaSourceBinder />
+        <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={45} />
+        <ambientLight intensity={1} />
+        <directionalLight position={[5, 5, 5]} intensity={1} />
+        <Scene settings={settings} onSettingsChange={setSettings} />
+        <PreviewAnchors />
+      </XRScene>
+    </AspectRatioContainer>
   );
 };
 
