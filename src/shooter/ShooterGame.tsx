@@ -7,13 +7,10 @@ import {
 import { useXRModelNode } from "@vincentt-xr/sdk/low-level";
 import { GestureTracker, HandTracker } from "@vincentt-xr/sdk/tracking";
 
-import { ShooterImageLayer, ShooterTextLayer } from "./ShooterLayer";
-import { ShooterInstruction } from "./ShooterInstruction";
+import { AmmoCounter, AmmoIcon, Bottle, Crosshair, Gun, ScoreCounter } from "./ShooterLayer";
+import { ShooterInstruction, type InstructionStep } from "./ShooterInstruction";
 import { ShooterResetButton } from "./ShooterResetButton";
-import type {
-  ShooterScreenTransform2DSettings,
-  ShooterSettings,
-} from "./settings";
+import { BOTTLE_RECT, CROSSHAIR_RECT, SHOOTER_GAME } from "./settings";
 
 type BottleState = {
   id: number;
@@ -67,37 +64,23 @@ const overlaps = (a: Rect, b: Rect, padding: number) => (
   && Math.abs(a.y - b.y) <= (a.height + b.height) * 0.5 + padding
 );
 
-const relativeToBottle = (
-  bottle: { x: number; y: number },
-  base: { x: number; y: number },
-  part?: { x: number; y: number },
-) => ({
-  x: bottle.x + ((part?.x ?? base.x) - base.x),
-  y: bottle.y + ((part?.y ?? base.y) - base.y),
-});
-
 const smashOpacityAt = (elapsed: number) => {
   const fadeIn = Math.min(1, elapsed / SMASH_FADE_IN_DURATION);
   const fadeOut = 1 - Math.max(0, elapsed - SMASH_HOLD_DURATION) / SMASH_FADE_OUT_DURATION;
   return Math.max(0, fadeIn * fadeOut);
 };
 
-export const ShooterGame = ({
-  settings,
-  onSettingsChange,
-}: {
-  settings: ShooterSettings;
-  onSettingsChange?: (next: ShooterSettings) => void;
-}) => {
+export const ShooterGame = () => {
+  const game = SHOOTER_GAME;
   const [time, setTime] = useState(0);
-  const [ammo, setAmmo] = useState(settings.game.numberOfBullet);
+  const [ammo, setAmmo] = useState<number>(game.numberOfBullet);
   const [lastShotAt, setLastShotAt] = useState<number | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
   const [hasShot, setHasShot] = useState(false);
   const gunShotAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [aimX, setAimX] = useState(settings.layers.crosshair.image?.screenImage.transformation.position.x ?? 0);
-  const [aimY, setAimY] = useState(settings.layers.crosshair.image?.screenImage.transformation.position.y ?? 0.7);
-  const [bottles, setBottles] = useState<BottleState[]>(() => createBottleState(settings.game.bottleCount));
+  const [aimX, setAimX] = useState<number>(CROSSHAIR_RECT.x);
+  const [aimY, setAimY] = useState<number>(CROSSHAIR_RECT.y);
+  const [bottles, setBottles] = useState<BottleState[]>(() => createBottleState(game.bottleCount));
   const previousGestureRef = useRef<HandNode["gesture"]>();
   const previousResultGestureRef = useRef<GestureNode["gesture"]>();
   const handNode = useXRModelNode<HandNode>(XRModel.HAND_TRACKER);
@@ -114,69 +97,26 @@ export const ShooterGame = ({
     };
   }, []);
 
-  const bottleTransform = settings.layers.bottles.image?.screenImage.transformation;
-  const topTransform = settings.layers.topHalfBottle.image?.screenImage.transformation;
-  const bottomTransform = settings.layers.bottomHalfBottle.image?.screenImage.transformation;
-  const smashedTransform = settings.layers.brokenPieces.image?.screenImage.transformation;
-  const crosshairTransform = settings.layers.crosshair.image?.screenImage.transformation;
   const liveCount = bottles.filter((bottle) => !bottle.broken).length;
-  const score = settings.game.bottleCount - liveCount;
-  const resultTarget = clamp(settings.game.resultTarget ?? settings.game.bottleCount, 1, settings.game.bottleCount);
+  const score = game.bottleCount - liveCount;
+  const resultTarget = clamp(game.resultTarget ?? game.bottleCount, 1, game.bottleCount);
   const didWin = score >= resultTarget;
   const gameOver = ammo <= 0 || didWin;
-  let instruction = "SHOW YOUR HAND TO START";
-  if (hasStarted) instruction = "MAKE A FIST TO SHOOT";
-  if (gameOver) instruction = "SHOW YOUR HAND TO PLAY AGAIN";
+  let instruction: InstructionStep = null;
+  if (gameOver) instruction = "playAgain";
+  else if (!hasShot) instruction = hasStarted ? "shoot" : "start";
   const recoilElapsed = lastShotAt === null ? Number.POSITIVE_INFINITY : time - lastShotAt;
   const recoilProgress = Math.min(1, Math.max(0, recoilElapsed / RECOIL_DURATION));
   const recoilWave = recoilElapsed > RECOIL_SETTLE_DURATION ? 0 : Math.sin(recoilProgress * Math.PI);
-  const gunRotation = settings.layers.gun.image?.screenImage.transformation.rotation ?? 0;
   const shotPopupElapsed = lastShotAt === null ? Number.POSITIVE_INFINITY : time - lastShotAt;
   const shotPopupScale = 1 + Math.max(0, 1 - shotPopupElapsed / CROSSHAIR_POP_DURATION) * CROSSHAIR_POP_SCALE;
-  const crosshairBasePosition = crosshairTransform?.position ?? { x: 0, y: 0.7 };
-  const crosshairPosition = { x: aimX, y: gameOver ? aimY : crosshairBasePosition.y };
-  const crosshairSize = crosshairTransform?.size ?? { width: 0.22, height: 0.22 };
-  const updateTextScreenTransform = (
-    id: "ammoText" | "scoreText",
-    screenTransform: ShooterScreenTransform2DSettings,
-  ) => {
-    const layer = settings.layers[id];
-    if (!layer.text || !onSettingsChange) return;
-    onSettingsChange({
-      ...settings,
-      layers: {
-        ...settings.layers,
-        [id]: {
-          ...layer,
-          text: {
-            ...layer.text,
-            screenText: {
-              ...layer.text.screenText,
-              screenTransform,
-              transformation: {
-                ...layer.text.screenText.transformation,
-                showTransformGuides: screenTransform.showTransformGuides,
-                position: screenTransform.position,
-                size: screenTransform.size,
-                rotation: screenTransform.rotation,
-                pivot: screenTransform.pivot,
-                renderOrder: screenTransform.renderOrder,
-                overlay: screenTransform.overlay,
-                visible: screenTransform.visible,
-              },
-            },
-          },
-        },
-      },
-    });
-  };
+  const crosshairPosition = { x: aimX, y: gameOver ? aimY : CROSSHAIR_RECT.y };
 
   const bottleLayout = useMemo(() => {
-    const base = bottleTransform?.position ?? { x: 0, y: 0.8 };
-    const size = bottleTransform?.size ?? { width: 0.16, height: 0.58 };
-    const extraGap = Math.max(0, settings.game.gapBetweenBottles) / SCREEN_PIXELS_PER_UNIT;
-    const gap = size.width + extraGap;
-    const duration = Math.max(0.1, settings.game.movingDuration);
+    const base = BOTTLE_RECT;
+    const extraGap = Math.max(0, game.gapBetweenBottles) / SCREEN_PIXELS_PER_UNIT;
+    const gap = base.width + extraGap;
+    const duration = Math.max(0.1, game.movingDuration);
     const phase = (time % duration) / duration;
     const trackSpan = Math.max(gap, bottles.length * gap);
     const travel = phase * trackSpan;
@@ -187,14 +127,14 @@ export const ShooterGame = ({
         ...bottle,
         x: base.x + SCREEN_TRACK_LEFT - gap + wrappedTrackX,
         y: base.y,
-        width: size.width,
-        height: size.height,
+        width: base.width,
+        height: base.height,
       };
     });
-  }, [bottleTransform, bottles, settings.game, time]);
+  }, [bottles, game, time]);
 
   const shoot = () => {
-    if (!hasStarted || gameOver || ammo <= 0 || !crosshairTransform) return;
+    if (!hasStarted || gameOver || ammo <= 0) return;
     const gunShotAudio = gunShotAudioRef.current;
     if (gunShotAudio) {
       gunShotAudio.currentTime = 0;
@@ -205,13 +145,13 @@ export const ShooterGame = ({
 
     const crosshairRect = {
       x: aimX,
-      y: crosshairTransform.position.y,
-      width: crosshairTransform.size.width,
-      height: crosshairTransform.size.height,
+      y: CROSSHAIR_RECT.y,
+      width: CROSSHAIR_RECT.width,
+      height: CROSSHAIR_RECT.height,
     };
     const hit = bottleLayout.find((bottle) => (
       !bottle.broken
-      && overlaps(crosshairRect, bottle, settings.game.bottleHitPadding)
+      && overlaps(crosshairRect, bottle, game.bottleHitPadding)
     ));
 
     setAmmo((current) => Math.max(0, current - 1));
@@ -236,20 +176,14 @@ export const ShooterGame = ({
   };
 
   const reset = () => {
-    setAmmo(settings.game.numberOfBullet);
+    setAmmo(game.numberOfBullet);
     setLastShotAt(null);
     setHasShot(false);
     setHasStarted(false);
-    setAimX(settings.layers.crosshair.image?.screenImage.transformation.position.x ?? 0);
-    setAimY(settings.layers.crosshair.image?.screenImage.transformation.position.y ?? 0.7);
-    setBottles(createBottleState(settings.game.bottleCount));
+    setAimX(CROSSHAIR_RECT.x);
+    setAimY(CROSSHAIR_RECT.y);
+    setBottles(createBottleState(game.bottleCount));
   };
-
-  useEffect(() => {
-    reset();
-    // reset intentionally uses the current settings snapshot.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.game.numberOfBullet, settings.game.bottleCount, settings.game.resultTarget]);
 
   useFrame((_, delta) => {
     setTime((current) => current + delta);
@@ -295,74 +229,35 @@ export const ShooterGame = ({
           shoot();
         }}
       >
-        {/* eslint-disable react/no-unknown-property */}
         <mesh position={[0, 0, -0.01]} renderOrder={-10}>
           <planeGeometry args={[20, 20]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
-        {/* eslint-enable react/no-unknown-property */}
-        {(!hasShot || gameOver) && <ShooterInstruction text={instruction} />}
-        {gameOver && <ShooterResetButton onReset={reset} />}
         <ScreenSpaceUI>
           {bottleLayout.map((bottle) => {
             const elapsed = bottle.hitAt === null ? 0 : Math.max(0, time - bottle.hitAt);
             const { broken } = bottle;
-            const base = bottleTransform?.position ?? { x: 0, y: 0.8 };
-            const topPosition = relativeToBottle(bottle, base, topTransform?.position);
-            const bottomBase = relativeToBottle(bottle, base, bottomTransform?.position);
-            const smashedPosition = relativeToBottle(bottle, base, smashedTransform?.position);
-            const bottomDrop = Math.min(BOTTOM_DROP_MAX, elapsed * BOTTOM_DROP_SPEED);
-            const bottomOpacity = broken ? Math.max(0, 1 - elapsed / BOTTOM_FADE_DURATION) : 0;
-            const smashedOpacity = broken ? smashOpacityAt(elapsed) : 0;
-
             return (
-              <group key={bottle.id}>
-                <ShooterImageLayer
-                  layer={settings.layers.bottles}
-                  position={{ x: bottle.x, y: bottle.y }}
-                  opacity={broken ? 0 : undefined}
-                />
-                <ShooterImageLayer
-                  layer={settings.layers.topHalfBottle}
-                  position={topPosition}
-                  opacity={broken ? undefined : 0}
-                />
-                <ShooterImageLayer
-                  layer={settings.layers.bottomHalfBottle}
-                  position={{ x: bottomBase.x, y: bottomBase.y - bottomDrop }}
-                  opacity={bottomOpacity}
-                />
-                <ShooterImageLayer
-                  layer={settings.layers.brokenPieces}
-                  position={smashedPosition}
-                  opacity={smashedOpacity}
-                />
-              </group>
+              <Bottle
+                key={bottle.id}
+                x={bottle.x - BOTTLE_RECT.x}
+                broken={broken}
+                bottomDrop={Math.min(BOTTOM_DROP_MAX, elapsed * BOTTOM_DROP_SPEED)}
+                bottomOpacity={broken ? Math.max(0, 1 - elapsed / BOTTOM_FADE_DURATION) : 0}
+                smashedOpacity={broken ? smashOpacityAt(elapsed) : 0}
+              />
             );
           })}
-          <ShooterImageLayer
-            layer={settings.layers.gun}
-            rotation={gunRotation + recoilWave * 5 - recoilWave * recoilProgress * 10}
+          <Gun rotation={recoilWave * 5 - recoilWave * recoilProgress * 10} />
+          <Crosshair
+            offset={{ x: crosshairPosition.x - CROSSHAIR_RECT.x, y: crosshairPosition.y - CROSSHAIR_RECT.y }}
+            scale={shotPopupScale}
           />
-          <ShooterImageLayer
-            layer={settings.layers.crosshair}
-            position={crosshairPosition}
-            size={{
-              width: crosshairSize.width * shotPopupScale,
-              height: crosshairSize.height * shotPopupScale,
-            }}
-          />
-          <ShooterImageLayer layer={settings.layers.ammoIcon} />
-          <ShooterTextLayer
-            layer={settings.layers.ammoText}
-            text={`x${ammo}`}
-            onScreenTransformChange={(next) => updateTextScreenTransform("ammoText", next)}
-          />
-          <ShooterTextLayer
-            layer={settings.layers.scoreText}
-            text={`${score} / ${resultTarget}`}
-            onScreenTransformChange={(next) => updateTextScreenTransform("scoreText", next)}
-          />
+          <AmmoIcon />
+          <AmmoCounter ammo={ammo} />
+          <ScoreCounter score={score} target={resultTarget} />
+          <ShooterInstruction step={instruction} />
+          <ShooterResetButton visible={gameOver} onReset={reset} />
         </ScreenSpaceUI>
       </group>
     </>

@@ -1,28 +1,57 @@
-import { Html } from "@react-three/drei";
+import { ScreenText } from "@vincentt-xr/sdk";
 
-const instructionStyle = {
-  width: "calc(100vw - 32px)",
-  color: "#ffffff",
-  fontFamily: "system-ui, sans-serif",
-  fontSize: "clamp(16px, 3.5vw, 28px)",
-  fontWeight: 800,
-  letterSpacing: "0.04em",
-  lineHeight: 1.2,
-  textAlign: "center" as const,
-  whiteSpace: "normal" as const,
-  pointerEvents: "none" as const,
-};
+export type InstructionStep = "start" | "shoot" | "playAgain" | null;
 
-export const ShooterInstruction = ({ text }: { text: string }) => (
-  <Html
-    calculatePosition={(_, __, size) => [size.width / 2, size.height / 2, 0]}
-    zIndexRange={[10, 0]}
-    pointerEvents="none"
-    style={{
-      transform: "translate(-50%, -50%)",
-      pointerEvents: "none",
-    }}
-  >
-    <div style={instructionStyle}>{text}</div>
-  </Html>
+/**
+ * The centre prompt. One literal `ScreenText` per step, so the console's visual
+ * editor can retype each; the game only chooses which one shows.
+ */
+export const ShooterInstruction = ({ step }: { step: InstructionStep }) => (
+  <>
+    <ScreenText
+      name="Start prompt"
+      text="SHOW YOUR HAND TO START"
+      screenTransform={{ position: { x: 0, y: 0 }, size: { width: 688, height: 120 }, rotation: 0, renderOrder: 100 }}
+      fontFamily="system-ui, sans-serif"
+      fontSize={34}
+      fontWeight={800}
+      letterSpacing={0.04}
+      color="#ffffff"
+      strokeLayers={[]}
+      shadowLayers={[]}
+      textAlign="center"
+      verticalAlign="center"
+      visible={step === "start"}
+    />
+    <ScreenText
+      name="Shoot prompt"
+      text="MAKE A FIST TO SHOOT"
+      screenTransform={{ position: { x: 0, y: 0 }, size: { width: 688, height: 120 }, rotation: 0, renderOrder: 100 }}
+      fontFamily="system-ui, sans-serif"
+      fontSize={34}
+      fontWeight={800}
+      letterSpacing={0.04}
+      color="#ffffff"
+      strokeLayers={[]}
+      shadowLayers={[]}
+      textAlign="center"
+      verticalAlign="center"
+      visible={step === "shoot"}
+    />
+    <ScreenText
+      name="Play again prompt"
+      text="SHOW YOUR HAND TO PLAY AGAIN"
+      screenTransform={{ position: { x: 0, y: 0 }, size: { width: 688, height: 120 }, rotation: 0, renderOrder: 100 }}
+      fontFamily="system-ui, sans-serif"
+      fontSize={34}
+      fontWeight={800}
+      letterSpacing={0.04}
+      color="#ffffff"
+      strokeLayers={[]}
+      shadowLayers={[]}
+      textAlign="center"
+      verticalAlign="center"
+      visible={step === "playAgain"}
+    />
+  </>
 );
